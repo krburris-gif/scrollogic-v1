@@ -1,16 +1,52 @@
-# React + Vite
+# ScrollLogic V1
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A high-fidelity, single-page boutique studio website built with **React + Vite**, featuring advanced asymmetric scroll logic, smooth animations, and a brutalist grid architecture.
 
-Currently, two official plugins are available:
+## ✨ Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Asymmetric Scroll Experience** — Custom scroll-driven interactions powered by Lenis
+- **High-performance Animations** — GSAP for buttery-smooth entrance animations and scroll triggers
+- **Brutalist Grid Layout** — Bold, modern, asymmetrical design system
+- **Fully Responsive** — Optimized for desktop, tablet, and mobile
+- **Fast & Lightweight** — Built with Vite for instant HMR and optimized production builds
 
-## React Compiler
+## 🛠 Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React** + **Vite**
+- **GSAP** (GreenSock Animation Platform)
+- **Lenis** — Smooth scrolling
+- **Tailwind CSS** (or vanilla CSS — depending on your setup)
+- **React Router** (if used)
 
-## Expanding the ESLint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+# Clone the repo
+git clone https://github.com/krburris-gif/scrollogic-v1.git
+cd scrollogic-v1
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+Open http://localhost:5173 to view it in the browser. Project Structure
+
+scrollogic-v1/
+├── public/
+├── src/
+│   ├── assets/
+│   ├── components/
+│   ├── App.jsx
+│   └── main.jsx
+├── index.html
+├── vite.config.js
+├── package.json
+└── README.md
+
+ GoalsDemonstrate advanced scroll orchestration techniques
+Create a memorable, high-end studio/portfolio feel
+Maintain excellent performance even with heavy animations
+
+Made with  for scroll enthusiasts and design lovers.Feel free to fork, explore, and build upon it!
