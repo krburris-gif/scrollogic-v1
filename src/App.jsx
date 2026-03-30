@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import Lenis from '@studio-freight/lenis';
 
+
+
+gsap.registerPlugin(ScrollTrigger);
 const App = () => {
   const contentRef = useRef(null);
   const heroLogicRef = useRef(null);
@@ -26,21 +32,10 @@ const App = () => {
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
-    * { 
-        box-sizing: border-box; 
-      }
-      
-      html, body, #root {
-        width: 100%;
-        max-width: 100vw;
-        margin: 0;
-        padding: 0;
-        overflow-x: hidden;
-        background-color: #F2F2F2;
-      }
-
       body {
+        background-color: #F2F2F2;
         color: #000000;
+        overflow-x: hidden;
         scrollbar-width: none;
         -ms-overflow-style: none;
         font-family: 'Inter Tight', sans-serif;
@@ -150,145 +145,158 @@ const App = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const state = animState.current;
+   useEffect(() => {
+   // 1. Initialize Lenis (Pure Physics & Heavy Lerp)
+    const lenis = new Lenis({
+      lerp: 0.06, // EXTREME INERTIA: The lower this number, the longer it glides after you let go
+      smoothWheel: true,
+      wheelMultiplier: 0.7, // Adds physical resistance to the wheel/trackpad
+    });
+    // 2. The "Pulse on Stop" Detector & GSAP Sync
+    let scrollTimeout;
+    lenis.on('scroll', () => {
+      ScrollTrigger.update(); // Keeps GSAP perfectly synced with Lenis
 
-    const resize = () => {
-      state.windowHeight = window.innerHeight;
-      if (contentRef.current) {
-        state.contentHeight = contentRef.current.getBoundingClientRect().height;
-        const proxy = document.getElementById('scroll-proxy-react');
-        if (proxy) proxy.style.height = `${state.contentHeight}px`;
-      }
-    };
-
-    window.addEventListener('resize', resize);
-    resize();
-    setTimeout(resize, 100);
-
-    const executeSnap = () => {
-      const snapEls = snapTargetRefs.current;
-      let closestSnapY = state.targetY;
-      let minDistance = Infinity;
-      snapEls.forEach(el => {
-        if (!el) return;
-        const elTop = el.offsetTop;
-        const distance = Math.abs(state.targetY - elTop);
-        if (distance < 300 && distance < minDistance) {
-          minDistance = distance;
-          closestSnapY = elTop;
-        }
-      });
-      if (minDistance !== Infinity) {
-        state.targetY = closestSnapY;
-        window.scrollTo({ top: closestSnapY, behavior: 'auto' });
-      }
-    };
-
-    const onScroll = () => {
-      state.targetY = window.scrollY;
-      state.isScrolling = true;
-      clearTimeout(state.scrollTimeout);
-      state.scrollTimeout = setTimeout(() => {
-        state.isScrolling = false;
-        executeSnap();
-      }, 150);
-    };
-
-    window.addEventListener('scroll', onScroll);
-
-    let rafId;
-    const render = () => {
-      state.currentY += (state.targetY - state.currentY) * state.ease;
-      state.velocity = state.currentY - state.lastY;
-      state.lastY = state.currentY;
-
-      const { currentY, velocity, windowHeight, contentHeight } = state;
-
-      if (contentRef.current) {
-        contentRef.current.style.transform = `translate3d(0, -${currentY}px, 0)`;
-      }
-
-      if (heroLogicRef.current) {
-        const logicPinMax = windowHeight * 0.5;
-        const logicTranslate = Math.min(currentY, logicPinMax);
-        heroLogicRef.current.style.transform = `translate3d(0, ${logicTranslate}px, 0)`;
-      }
-
-      if (colIdentityRef.current) {
-        if (window.innerWidth >= 768) {
-          colIdentityRef.current.style.transform = `translate3d(0, ${currentY * 0.2}px, 0)`;
-        } else {
-          colIdentityRef.current.style.transform = `translate3d(0, 0, 0)`;
-        }
-      }
-
-      if (imageFrameRef.current) {
-        const maxLag = 60;
-        let frameLag = velocity * -1.5;
-        frameLag = Math.max(-maxLag, Math.min(maxLag, frameLag));
-        imageFrameRef.current.style.transform = `translate3d(0, ${frameLag}px, 0)`;
-      }
-
-      if (vectorScanLayerRef.current) {
-        const vectorScanDepth = 0.4;
-        const maxVectorOffset = window.innerWidth * 2;
-        const vectorXPosition = -(currentY * vectorScanDepth) % maxVectorOffset;
-        vectorScanLayerRef.current.style.transform = `translate3d(${vectorXPosition}px, 0, 0)`;
-      }
-
-      if (artifactImgRef.current && imageFrameRef.current) {
-        const frameRect = imageFrameRef.current.getBoundingClientRect();
-        const frameCenter = frameRect.top + frameRect.height / 2;
-        const viewportCenter = windowHeight / 2;
-        const distanceToCenter = frameCenter - viewportCenter;
-        const imageParallax = distanceToCenter * -0.25;
-        artifactImgRef.current.style.transform = `scale(1.3) translate3d(0, ${imageParallax}px, 0)`;
-      }
-
-      let dynamicScannerY = 0;
+      // While scrolling: Keep scanner neutral and sharp
       if (scannerRef.current) {
-        const scrollProgress = currentY / ((contentHeight - windowHeight) || 1);
-        const baseScannerY = windowHeight * 0.2 + scrollProgress * windowHeight * 0.6;
-        dynamicScannerY = baseScannerY + velocity * 2;
-        dynamicScannerY = Math.max(0, Math.min(windowHeight, dynamicScannerY));
-        scannerRef.current.style.transform = `translate3d(0, ${dynamicScannerY}px, 0)`;
-
-        if (Math.abs(velocity) < 0.2 && !state.isScrolling) {
-          scannerRef.current.classList.add('scanner-pulse');
-        } else {
-          scannerRef.current.classList.remove('scanner-pulse');
-        }
+        scannerRef.current.style.backgroundColor = '#000000'; // Default color
+        scannerRef.current.style.boxShadow = 'none';
+        scannerRef.current.style.transition = 'none'; // Instant response
       }
 
-      glitchRefs.current.forEach(label => {
-        if (!label) return;
-        const rect = label.getBoundingClientRect();
-        if (dynamicScannerY >= rect.top && dynamicScannerY <= rect.bottom) {
-          label.classList.add('glitch-active');
-        } else {
-          label.classList.remove('glitch-active');
+      clearTimeout(scrollTimeout);
+
+      // When stopped for 150ms: Flare the accent color
+      scrollTimeout = setTimeout(() => {
+        if (scannerRef.current) {
+          scannerRef.current.style.backgroundColor = '#FF3500';
+          scannerRef.current.style.boxShadow = '0 0 15px #FF3500, 0 0 30px #FF3500';
+          scannerRef.current.style.transition = 'all 0.3s ease';
+        }
+      }, 150);
+    });
+
+    gsap.ticker.add((time) => {
+      lenis.raf(time * 1000);
+    });
+    gsap.ticker.lagSmoothing(0);
+
+    // 3. Hero Parallax (True Pin & Release)
+    gsap.to(heroLogicRef.current, {
+      y: () => window.innerHeight * 0.5,
+      ease: "none",
+      scrollTrigger: {
+        trigger: "body",
+        start: "top top",
+        end: () => `+=${window.innerHeight * 0.5}`,
+        scrub: true,
+        invalidateOnRefresh: true,
+      }
+    });
+
+  // 4. Selective Kinetic Snapping (The "Thin Magnet" Entry Snap)
+    const snapSections = gsap.utils.toArray(".kinetic-section");
+    snapSections.forEach((sec) => {
+      ScrollTrigger.create({
+        trigger: sec,
+        start: "top top", 
+        // THE FIX: The magnet turns off after 200px. 
+        // This lets you scroll freely through the rest of the tall section and into the footer!
+        end: "+=200", 
+        snap: {
+          snapTo: 0, 
+          duration: { min: 0.2, max: 0.4 }, 
+          ease: "back.out(1.1)", 
+          delay: 0.1, 
         }
       });
+    });
 
-      rafId = requestAnimationFrame(render);
-    };
+    // 5. Identity Column Parallax (True 0.8x Lag)
+    gsap.fromTo(colIdentityRef.current,
+      { y: 0 },
+      {
+        y: () => window.innerHeight * 0.25, // 25vh push-down creates the heavy anchor drag
+        ease: "none",
+        scrollTrigger: {
+          trigger: "#manifesto-section",
+          start: "top bottom",
+          end: "bottom top",
+          scrub: 1.5,
+          invalidateOnRefresh: true,
+        }
+      }
+    );
 
-    render();
+    // 6. Image Frame (LOCKED FRAME)
+    // We have completely removed the dynamic, velocity-based mask that caused the frame to "bounce."
+    // We now set a permanent, static mask that defines the edges of the frame once on load.
+    // The frame container itself is locked to 1x speed, perfectly matching the text next to it.
+    gsap.set(imageFrameRef.current, { clipPath: "inset(2% 0% 2% 0%)" }); 
+    
+    // 7. Inner Image Parallax (High-Intensity 1.25x Speed)
+    // To make the parallax highly noticeable (1.25x), we need an aggressive slide.
+    // Over the course of the section, we force the image to slide upward by an extra 50% of the screen height.
+    gsap.fromTo(artifactImgRef.current,
+      // Starts pushed down inside the frame by 25% of the window height
+      { y: () => window.innerHeight * 0.25 }, 
+      { 
+        // Slides upward to be pushed up 25% of the window height over the scroll distance
+        y: () => -window.innerHeight * 0.25, 
+        ease: "none",
+        scrollTrigger: {
+          trigger: "#manifesto-section", // The unified anchor
+          start: "top bottom",
+          end: "bottom top",
+          scrub: true,
+          invalidateOnRefresh: true, // Essential so the math scales on window resize
+        }
+      }
+    );
+    // 8. Vector Scan Layer (Horizontal Movement)
+    gsap.to(vectorScanLayerRef.current, {
+      x: -window.innerWidth,
+      ease: "none",
+      scrollTrigger: {
+        trigger: "body",
+        start: "top top",
+        end: "bottom bottom",
+        scrub: 1, 
+      }
+    });
 
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual';
-    }
-    window.scrollTo(0, 0);
+    // 9. Global Scanner Line (Top to bottom)
+    gsap.to(scannerRef.current, {
+      top: "100%", 
+      ease: "none",
+      scrollTrigger: {
+        trigger: "body",
+        start: "top top",
+        end: "bottom bottom",
+        scrub: true,
+      }
+    });
 
+    // 10. Glitch Target Activation
+    glitchRefs.current.forEach((el) => {
+      if (!el) return;
+      ScrollTrigger.create({
+        trigger: el,
+        start: "top center", 
+        end: "bottom center",
+        toggleClass: "glitch-active",
+      });
+    });
+
+    // 11. Forward-Thinking Cleanup Phase
     return () => {
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('scroll', onScroll);
-      cancelAnimationFrame(rafId);
+      lenis.destroy();
+      ScrollTrigger.getAll().forEach(t => t.kill());
+      gsap.ticker.remove(lenis.raf);
+      clearTimeout(scrollTimeout); // Prevents the pulse timer from leaking into other pages
     };
   }, []);
-
-  const addGlitchRef = (el) => {
+const addGlitchRef = (el) => {
     if (el && !glitchRefs.current.includes(el)) {
       glitchRefs.current.push(el);
     }
@@ -302,14 +310,13 @@ const App = () => {
 
   return (
     <div style={{ fontFamily: "'Inter Tight', sans-serif", backgroundColor: '#F2F2F2', color: '#000000' }}>
-      <div id="scroll-proxy-react" style={{ width: '100%' }}></div>
+      
 
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', overflow: 'hidden', pointerEvents: 'none' }}>
-
+<div style={{ width: '100%', position: 'relative' }}>
         <div
           ref={vectorScanLayerRef}
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: 0,
             left: 0,
             width: '300vw',
@@ -363,7 +370,7 @@ const App = () => {
         <div
           ref={scannerRef}
           style={{
-            position: 'absolute',
+            position: 'fixed',
             left: 0,
             width: '100%',
             height: '1px',
@@ -488,24 +495,26 @@ const App = () => {
             </div>
           </section>
 
-          <section
-            ref={el => addSnapRef(el)}
+         <section
+            id="manifesto-section" 
+            ref={el => addSnapRef(el)} 
+            className="kinetic-section"
             style={{
               display: 'flex',
-              flexDirection: 'column',
+              flexDirection: 'row', 
               minHeight: '100vh',
               width: '100%',
               backgroundColor: '#F2F2F2',
               zIndex: 20,
               position: 'relative',
             }}
-            className="md:flex-row"
           >
+            {/* COLUMN 1: IDENTITY */}
             <div
               ref={colIdentityRef}
               className="b-grid-r"
               style={{
-                width: '100%',
+                flex: 1, 
                 padding: '24px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -514,48 +523,33 @@ const App = () => {
                 backgroundColor: '#F2F2F2',
                 position: 'relative',
                 zIndex: 30,
-                willChange: 'transform',
-                flexShrink: 0,
               }}
             >
               <div className="meta-text" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '64px' }}>
                 <span>Identity</span>
                 <span>01</span>
               </div>
-
-              <ul style={{ display: 'flex', flexDirection: 'column', gap: '48px', marginTop: 'auto', paddingBottom: '48px', listStyle: 'none', margin: 0, padding: 0, paddingBottom: '48px', marginTop: 'auto' }}>
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: '48px', marginTop: 'auto', paddingBottom: '48px', listStyle: 'none', margin: 0, padding: 0 }}>
                 <li style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span
-                    ref={addGlitchRef}
-                    className="meta-text glitch-target"
-                    data-text="Location"
-                    style={{ color: '#FF3500' }}
-                  >Location</span>
+                  <span ref={addGlitchRef} className="meta-text glitch-target" data-text="Location" style={{ color: '#FF3500' }}>Location</span>
                   <span style={{ fontWeight: 700, fontSize: '1.125rem' }}>Global / Remote</span>
                 </li>
                 <li style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span
-                    ref={addGlitchRef}
-                    className="meta-text glitch-target"
-                    data-text="Focus"
-                    style={{ color: '#FF3500' }}
-                  >Focus</span>
+                  <span ref={addGlitchRef} className="meta-text glitch-target" data-text="Focus" style={{ color: '#FF3500' }}>Focus</span>
                   <span style={{ fontWeight: 700, fontSize: '1.125rem' }}>Digital Products,<br />Landing Pages</span>
                 </li>
                 <li style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span
-                    ref={addGlitchRef}
-                    className="meta-text glitch-target"
-                    data-text="Status"
-                    style={{ color: '#FF3500', display: 'flex', alignItems: 'center', gap: '12px' }}
-                  >Status <span className="status-dot"></span></span>
+                  <span ref={addGlitchRef} className="meta-text glitch-target" data-text="Status" style={{ color: '#FF3500', display: 'flex', alignItems: 'center', gap: '12px' }}>Status <span className="status-dot"></span></span>
                   <span style={{ fontWeight: 700, fontSize: '1.125rem' }}>Accepting Projects</span>
                 </li>
               </ul>
             </div>
 
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F2F2F2' }} className="md:flex-row">
-              <div className="b-grid-r" style={{ width: '100%', padding: '24px', display: 'flex', flexDirection: 'column', minHeight: '60vh' }}>
+            {/* COLUMN 2 & 3 WRAPPER */}
+            <div style={{ flex: 2, display: 'flex', flexDirection: 'row', backgroundColor: '#F2F2F2' }}>
+              
+              {/* COLUMN 2: MANIFESTO */}
+              <div className="b-grid-r" style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', minHeight: '60vh' }}>
                 <div className="meta-text" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '64px' }}>
                   <span>Manifesto Preview</span>
                   <span>02</span>
@@ -566,18 +560,17 @@ const App = () => {
                 </p>
               </div>
 
-              <div style={{ width: '100%', padding: '24px', display: 'flex', flexDirection: 'column', position: 'relative', minHeight: '80vh' }}>
+              {/* COLUMN 3: IMAGE */}
+              <div style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', position: 'relative', minHeight: '80vh' }}>
                 <div
                   ref={imageFrameRef}
                   style={{
                     position: 'relative',
                     width: '100%',
-                    height: '60vh',
+                    height: '100%',
                     marginTop: 'auto',
                     overflow: 'hidden',
                     backgroundColor: '#000000',
-                    willChange: 'transform',
-                    flexShrink: 0,
                   }}
                 >
                   <img
@@ -592,7 +585,6 @@ const App = () => {
                       objectFit: 'cover',
                       filter: 'grayscale(100%)',
                       opacity: 0.85,
-                      willChange: 'transform',
                       transform: 'scale(1.3)',
                       transformOrigin: 'center',
                     }}
@@ -611,7 +603,7 @@ const App = () => {
 
           <section
             ref={el => addSnapRef(el)}
-            className="b-grid-t"
+            className="b-grid-t kinetic-section"
             style={{
               height: '150vh',
               width: '100%',
@@ -670,7 +662,7 @@ const App = () => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
               <span className="meta-text" style={{ color: '#6b7280' }}>All rights reserved. System Operational.</span>
-              <span style={{ fontSize: '3.75rem', fontWeight: 900, lineHeight: 1, letterSpacing: '-0.04em' }}>2024</span>
+              <span style={{ fontSize: '3.75rem', fontWeight: 900, lineHeight: 1, letterSpacing: '-0.04em' }}>2026</span>
             </div>
           </footer>
         </main>
